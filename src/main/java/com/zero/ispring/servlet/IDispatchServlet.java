@@ -1,8 +1,6 @@
 package com.zero.ispring.servlet;
 
-import com.zero.ispring.annotations.iAutowired;
-import com.zero.ispring.annotations.iController;
-import com.zero.ispring.annotations.iService;
+import com.zero.ispring.annotations.*;
 
 import javax.servlet.ServletConfig;
 import javax.servlet.ServletException;
@@ -12,7 +10,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.lang.annotation.Annotation;
 import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.*;
@@ -56,7 +56,14 @@ public class IDispatchServlet extends HttpServlet{
     }
 
 
-    protected void doDispatch(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+    /**
+     * 自定义dispatch
+     * @param req
+     * @param resp
+     * @throws ServletException
+     * @throws IOException
+     */
+    protected void doDispatch(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException, InvocationTargetException, IllegalAccessException {
         String url = req.getRequestURI();
         String contextPath = req.getContextPath();
         url = url.replaceAll(contextPath, "").replaceAll("/+","/");
@@ -66,7 +73,35 @@ public class IDispatchServlet extends HttpServlet{
 
         Map<String, String[]> params = req.getParameterMap();
         Method method = this.handlerMapping.get(url);
-
+        // 获取形参列表
+        Class<?>[] parameterTypes = method.getParameterTypes();
+        Object[] paramValues = new Object[parameterTypes.length];
+        for (int i = 0; i < parameterTypes.length; i++) {
+            Class<?> parameterType = parameterTypes[i];
+            if (parameterType == HttpServletRequest.class) {
+                paramValues[i] = req;
+            } else if (parameterType == HttpServletResponse.class) {
+                paramValues[i] = resp;
+            } else if (parameterType == String.class) {
+                // 通过运行时的状态去拿到注解的值
+                Annotation[][] pa = method.getParameterAnnotations();
+                for (int j = 0; j < pa.length; j++) {
+                    for (Annotation a : pa[j]) {
+                        if (a instanceof iRequestParam) {
+                            String paramName = ((iRequestParam) a).value();
+                            if (!"".equals(paramName.trim())) {
+                                String value = Arrays.toString(params.get(paramName))
+                                        .replaceAll("\\[|\\]", "")
+                                        .replaceAll("\\s+", "");
+                                paramValues[i] = value;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        String beanName = toLowerFirstCase(method.getDeclaringClass().getSimpleName().trim());
+        method.invoke(ioc.get(beanName), new Object[]{req, resp});
     }
 
 
@@ -83,6 +118,8 @@ public class IDispatchServlet extends HttpServlet{
         //================DI部分==============//
         // 4.完成依赖注入
         autoWired();
+        // 5. url mapping
+        loadMapping();
 
     }
 
@@ -215,5 +252,43 @@ public class IDispatchServlet extends HttpServlet{
         char[] chars = simpleName.toCharArray();
         chars[0] += 32;
         return String.valueOf(chars);
+    }
+
+    /**
+     * requestMapping
+     */
+    private void loadMapping(){
+        if(ioc.isEmpty()){
+            return;
+        }
+        for (Map.Entry<String, Object> entry : ioc.entrySet()){
+            Class<?> clazz = entry.getValue().getClass();
+            if(!clazz.isAnnotationPresent(iController.class)){
+                continue;
+            }
+            String startUrl = "";
+            // controller上的requestMapping
+            if(clazz.isAnnotationPresent(iRequestMapping.class)){
+                String requestUrl = clazz.getAnnotation(iRequestMapping.class).value().trim();
+                if(!"".equals(requestUrl) && !"/".equals(requestUrl)){
+                    startUrl = requestUrl;
+                }
+            }
+            for(Method method : entry.getValue().getClass().getMethods()){
+                if(!method.isAnnotationPresent(iRequestMapping.class)){
+                    return;
+                }
+                iRequestMapping requestMapping = method.getAnnotation(iRequestMapping.class);
+                // 如果用户没有自定义的beanName，就默认根据类型注入
+                String url = requestMapping.value().trim();
+                String methodName = startUrl.concat(url);
+                try {
+                    // ioc.get(beanName) 相当于通过接口的全名从IOC中拿到接口的实现的实例
+                    handlerMapping.put(methodName,method);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }
     }
 }

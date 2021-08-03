@@ -24,7 +24,7 @@ public class Demo {
     private DemoService demoService;
 
     @iRequestMapping("/hello")
-    public String HelloWorld(HttpServletRequest request, HttpServletResponse response){
+    public String helloWorld(HttpServletRequest request, HttpServletResponse response){
         String name = demoService.getName();
         return "Hello World!".concat(name);
     }
