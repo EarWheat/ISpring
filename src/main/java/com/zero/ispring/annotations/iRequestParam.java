@@ -11,7 +11,7 @@ import java.lang.annotation.*;
  * Date         Author          Description
  * ------------------------------------------ *
  */
-@Target({ElementType.TYPE, ElementType.METHOD})
+@Target({ElementType.PARAMETER})
 @Retention(RetentionPolicy.RUNTIME)
 @Documented
 public @interface iRequestParam {

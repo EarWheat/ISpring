@@ -64,9 +64,9 @@ public class Handler {
      * @return
      */
     public Boolean match(String url){
-//        if(this.pattern.matcher(url)){
-//
-//        }
-        return true;
+        if(url.trim().equals(this.url)){
+            return true;
+        }
+        return false;
     }
 }

@@ -71,9 +71,9 @@ public class IDispatchServlet extends HttpServlet{
         String url = req.getRequestURI();
         String contextPath = req.getContextPath();
         url = url.replaceAll(contextPath, "").replaceAll("/+","/");
-        if(!this.handlers.contains(url)){
-            resp.getWriter().write("404 Not Found!");
-        }
+//        if(!this.handlers.contains(url)){
+//            resp.getWriter().write("404 Not Found!");
+//        }
 
         Map<String, String[]> params = req.getParameterMap();
         for(Handler handler : handlers){
@@ -83,12 +83,13 @@ public class IDispatchServlet extends HttpServlet{
                 LinkedList<String> paramList = handler.getParamList();
                 LinkedList<Object> paramValues = new LinkedList<>();
                 paramList.forEach(param -> {
-                    paramValues.add(params.get(param));
+                    paramValues.add(params.get(param)[0]);
                 });
 
                 method.invoke(handler.getController(), paramValues.toArray());
             }
         }
+        resp.getWriter().write("404 Not Found!");
 
 //        Map<String, String[]> params = req.getParameterMap();
 //        Method method = this.handlers.get(url);
