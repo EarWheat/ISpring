@@ -1,6 +1,7 @@
 package com.zero.ispring.servlet;
 
 import com.zero.ispring.annotations.iRequestParam;
+import lombok.Data;
 
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
@@ -18,16 +19,17 @@ import java.util.regex.Pattern;
  * Date         Author          Description
  * ------------------------------------------ *
  */
+@Data
 public class Handler {
     private Object controller;
     private Method method;
-    private Pattern pattern;
+    private String url;
     private LinkedList<String> paramList;
 
-    public Handler(Object controller, Method method, Pattern pattern) {
+    public Handler(Object controller, Method method, String url) {
         this.controller = controller;
         this.method = method;
-        this.pattern = pattern;
+        this.url = url;
         paramList = new LinkedList<>();
         putParamsIndex(method);
     }
@@ -54,5 +56,17 @@ public class Handler {
             }
         });
 
+    }
+
+    /**
+     * 根据requestUrl定位Handler
+     * @param url
+     * @return
+     */
+    public Boolean match(String url){
+//        if(this.pattern.matcher(url)){
+//
+//        }
+        return true;
     }
 }

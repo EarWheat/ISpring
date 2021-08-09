@@ -37,8 +37,12 @@ public class IDispatchServlet extends HttpServlet{
      */
     private Map<String, Object> ioc = new HashMap<>();
 
-    private Map<String, Method> handlerMapping = new HashMap<String, Method>();
+//    private Map<String, Method> handlerMapping = new HashMap<String, Method>();
 
+    /**
+     * Mapping执行Hander
+     */
+    private List<Handler> handlers = new ArrayList<>();
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
@@ -67,41 +71,56 @@ public class IDispatchServlet extends HttpServlet{
         String url = req.getRequestURI();
         String contextPath = req.getContextPath();
         url = url.replaceAll(contextPath, "").replaceAll("/+","/");
-        if(!this.handlerMapping.containsKey(url)){
+        if(!this.handlers.contains(url)){
             resp.getWriter().write("404 Not Found!");
         }
 
         Map<String, String[]> params = req.getParameterMap();
-        Method method = this.handlerMapping.get(url);
-        // 获取形参列表
-        Class<?>[] parameterTypes = method.getParameterTypes();
-        Object[] paramValues = new Object[parameterTypes.length];
-        for (int i = 0; i < parameterTypes.length; i++) {
-            Class<?> parameterType = parameterTypes[i];
-            if (parameterType == HttpServletRequest.class) {
-                paramValues[i] = req;
-            } else if (parameterType == HttpServletResponse.class) {
-                paramValues[i] = resp;
-            } else if (parameterType == String.class) {
-                // 通过运行时的状态去拿到注解的值
-                Annotation[][] pa = method.getParameterAnnotations();
-                for (int j = 0; j < pa.length; j++) {
-                    for (Annotation a : pa[j]) {
-                        if (a instanceof iRequestParam) {
-                            String paramName = ((iRequestParam) a).value();
-                            if (!"".equals(paramName.trim())) {
-                                String value = Arrays.toString(params.get(paramName))
-                                        .replaceAll("\\[|\\]", "")
-                                        .replaceAll("\\s+", "");
-                                paramValues[i] = value;
-                            }
-                        }
-                    }
-                }
+        for(Handler handler : handlers){
+            if(handler.match(url)){
+                // 获取形参列表
+                Method method = handler.getMethod();
+                LinkedList<String> paramList = handler.getParamList();
+                LinkedList<Object> paramValues = new LinkedList<>();
+                paramList.forEach(param -> {
+                    paramValues.add(params.get(param));
+                });
+
+                method.invoke(handler.getController(), paramValues.toArray());
             }
         }
-        String beanName = toLowerFirstCase(method.getDeclaringClass().getSimpleName().trim());
-        method.invoke(ioc.get(beanName), new Object[]{req, resp});
+
+//        Map<String, String[]> params = req.getParameterMap();
+//        Method method = this.handlers.get(url);
+//        // 获取形参列表
+//        Class<?>[] parameterTypes = method.getParameterTypes();
+//        Object[] paramValues = new Object[parameterTypes.length];
+//        for (int i = 0; i < parameterTypes.length; i++) {
+//            Class<?> parameterType = parameterTypes[i];
+//            if (parameterType == HttpServletRequest.class) {
+//                paramValues[i] = req;
+//            } else if (parameterType == HttpServletResponse.class) {
+//                paramValues[i] = resp;
+//            } else if (parameterType == String.class) {
+//                // 通过运行时的状态去拿到注解的值
+//                Annotation[][] pa = method.getParameterAnnotations();
+//                for (int j = 0; j < pa.length; j++) {
+//                    for (Annotation a : pa[j]) {
+//                        if (a instanceof iRequestParam) {
+//                            String paramName = ((iRequestParam) a).value();
+//                            if (!"".equals(paramName.trim())) {
+//                                String value = Arrays.toString(params.get(paramName))
+//                                        .replaceAll("\\[|\\]", "")
+//                                        .replaceAll("\\s+", "");
+//                                paramValues[i] = value;
+//                            }
+//                        }
+//                    }
+//                }
+//            }
+//        }
+//        String beanName = toLowerFirstCase(method.getDeclaringClass().getSimpleName().trim());
+//        method.invoke(ioc.get(beanName), new Object[]{req, resp});
     }
 
 
@@ -281,10 +300,11 @@ public class IDispatchServlet extends HttpServlet{
                 iRequestMapping requestMapping = method.getAnnotation(iRequestMapping.class);
                 // 如果用户没有自定义的beanName，就默认根据类型注入
                 String url = requestMapping.value().trim();
-                String methodName = startUrl.concat(url);
+                String requestUrl = startUrl.concat(url);
                 try {
                     // ioc.get(beanName) 相当于通过接口的全名从IOC中拿到接口的实现的实例
-                    handlerMapping.put(methodName,method);
+//                    handlerMapping.put(requestUrl,method);
+                    handlers.add(new Handler(clazz, method, requestUrl));
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
